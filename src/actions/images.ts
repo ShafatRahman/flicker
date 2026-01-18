@@ -1,10 +1,38 @@
 'use server';
 
-import { createServiceClient } from '@/lib/supabase/server';
+import { createServiceClient, createClient } from '@/lib/supabase/server';
 import type { Image, PublicImage } from '@/types';
 
 const BUCKET_NAME = 'images';
 const PAGE_SIZE = 12;
+
+/**
+ * Verify that the provided userId matches the authenticated user's database ID.
+ * For authenticated users, this prevents spoofing another user's ID.
+ * For anonymous users (no auth session), we trust the client-provided userId.
+ */
+async function verifyUserOwnership(userId: string): Promise<{ valid: boolean; error?: string }> {
+  const authClient = await createClient();
+  const { data: { user: authUser } } = await authClient.auth.getUser();
+  
+  if (authUser) {
+    // User is authenticated - verify the userId matches their session
+    const supabase = createServiceClient();
+    const { data: dbUser } = await supabase
+      .from('users')
+      .select('id')
+      .eq('session_id', authUser.id)
+      .single();
+    
+    if (!dbUser || dbUser.id !== userId) {
+      return { valid: false, error: 'Unauthorized: User ID mismatch' };
+    }
+  }
+  // For anonymous users (no authUser), we allow the operation
+  // They can only access data tied to their localStorage session ID
+  
+  return { valid: true };
+}
 
 export async function saveImageMetadata(
   userId: string,
@@ -13,6 +41,11 @@ export async function saveImageMetadata(
   fileSize: number,
   isClaimed: boolean = false
 ): Promise<Image> {
+  const ownership = await verifyUserOwnership(userId);
+  if (!ownership.valid) {
+    throw new Error(ownership.error || 'Unauthorized');
+  }
+
   const supabase = createServiceClient();
 
   const expiresAt = isClaimed
@@ -37,6 +70,11 @@ export async function saveImageMetadata(
 }
 
 export async function deleteImage(imageId: string, userId: string) {
+  const ownership = await verifyUserOwnership(userId);
+  if (!ownership.valid) {
+    return { success: false, error: ownership.error || 'Unauthorized' };
+  }
+
   const supabase = createServiceClient();
 
   // Get image and verify ownership
@@ -80,6 +118,11 @@ export async function deleteImage(imageId: string, userId: string) {
 }
 
 export async function getUserImages(userId: string): Promise<Image[]> {
+  const ownership = await verifyUserOwnership(userId);
+  if (!ownership.valid) {
+    throw new Error(ownership.error || 'Unauthorized');
+  }
+
   const supabase = createServiceClient();
 
   const { data, error } = await supabase
@@ -93,6 +136,11 @@ export async function getUserImages(userId: string): Promise<Image[]> {
 }
 
 export async function toggleImageVisibility(imageId: string, userId: string, isPublic: boolean) {
+  const ownership = await verifyUserOwnership(userId);
+  if (!ownership.valid) {
+    return { success: false, error: ownership.error || 'Unauthorized' };
+  }
+
   const supabase = createServiceClient();
 
   // Verify ownership
@@ -156,6 +204,11 @@ export async function getPublicImages(page: number = 0): Promise<{ images: Publi
 }
 
 export async function removeExpiration(userId: string) {
+  const ownership = await verifyUserOwnership(userId);
+  if (!ownership.valid) {
+    return { success: false, error: ownership.error || 'Unauthorized' };
+  }
+
   const supabase = createServiceClient();
 
   const { error } = await supabase
