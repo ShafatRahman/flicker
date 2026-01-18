@@ -1,65 +1,450 @@
-import Image from "next/image";
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
+import TopNav, { TabType } from '@/components/TopNav';
+import ImageUploader from '@/components/ImageUploader';
+import ProcessingProgress from '@/components/ProcessingProgress';
+import ClaimImages from '@/components/ClaimImages';
+import AuthModal from '@/components/AuthModal';
+import DiscoverFeed from '@/components/DiscoverFeed';
+import MyImages from '@/components/MyImages';
+import { getSessionId, setSessionId, getAuthUser, signOut } from '@/lib/identity';
+import { processImage } from '@/lib/image-processing';
+import { uploadProcessedImage } from '@/lib/blob';
+import { getOrCreateUser, mergeAnonymousToAuthUser } from '@/actions/users';
+import { saveImageMetadata, getUserImages } from '@/actions/images';
+import { createClient } from '@/lib/supabase/client';
+import type { Image as ImageType, ProcessingStatus, User } from '@/types';
 
 export default function Home() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+  const [user, setUser] = useState<User | null>(null);
+  const [images, setImages] = useState<ImageType[]>([]);
+  const [processing, setProcessing] = useState<ProcessingStatus[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showAuth, setShowAuth] = useState(false);
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
+  const [authMessage, setAuthMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [activeTab, setActiveTab] = useState<TabType>('home');
+
+  const loadUserData = useCallback(async () => {
+    try {
+      const authUser = await getAuthUser();
+      
+      if (authUser) {
+        setSessionId(authUser.id);
+        const anonymousSessionId = localStorage.getItem('anonymousSessionId');
+        
+        if (anonymousSessionId && anonymousSessionId !== authUser.id) {
+          try {
+            await mergeAnonymousToAuthUser(anonymousSessionId, authUser.id, authUser.email || '');
+            localStorage.removeItem('anonymousSessionId');
+          } catch (mergeError) {
+            console.error('Failed to merge anonymous user:', mergeError);
+          }
+        }
+        
+        const userData = await getOrCreateUser(authUser.id);
+        setUser(userData);
+        
+        const userImages = await getUserImages(userData.id);
+        setImages(userImages);
+      } else {
+        const sessionId = getSessionId();
+        localStorage.setItem('anonymousSessionId', sessionId);
+        
+        const userData = await getOrCreateUser(sessionId);
+        setUser(userData);
+        
+        const userImages = await getUserImages(userData.id);
+        setImages(userImages);
+      }
+    } catch (error) {
+      console.error('Failed to load user data:', error);
+      // Set a fallback anonymous user so the app is still usable
+      const sessionId = getSessionId();
+      setUser({
+        id: sessionId,
+        session_id: sessionId,
+        email: null,
+        email_verified: false,
+        created_at: new Date().toISOString(),
+      });
+      setImages([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        await loadUserData();
+
+        const params = new URLSearchParams(window.location.search);
+        const authStatus = params.get('auth');
+        const errorMessage = params.get('message');
+        
+        if (authStatus === 'verified') {
+          setAuthMessage({ text: 'Email verified! Your images will now be saved forever.', type: 'success' });
+          window.history.replaceState({}, '', '/');
+          // Reload user data to get updated verified status
+          await loadUserData();
+        } else if (authStatus === 'error') {
+          const msg = errorMessage 
+            ? decodeURIComponent(errorMessage)
+            : 'Authentication failed. Please try again.';
+          setAuthMessage({ text: msg, type: 'error' });
+          window.history.replaceState({}, '', '/');
+        }
+      } catch (error) {
+        console.error('Init error:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    init();
+
+    const supabase = createClient();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+        await loadUserData();
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [loadUserData]);
+
+  const handleFilesSelected = useCallback(
+    async (files: File[]) => {
+      if (!user) return;
+
+      const newProcessing: ProcessingStatus[] = files.map((file) => ({
+        id: crypto.randomUUID(),
+        file,
+        stage: 'queued',
+        progress: 0,
+      }));
+
+      setProcessing((prev) => [...prev, ...newProcessing]);
+
+      // Process all images in parallel
+      const processOneImage = async (item: ProcessingStatus) => {
+        try {
+          setProcessing((prev) =>
+            prev.map((p) =>
+              p.id === item.id ? { ...p, stage: 'removing-bg' } : p
+            )
+          );
+
+          const processedBlob = await processImage(item.file, (_stage, progress) => {
+            setProcessing((prev) =>
+              prev.map((p) =>
+                p.id === item.id
+                  ? {
+                      ...p,
+                      stage: progress < 0.8 ? 'removing-bg' : 'flipping',
+                      progress: progress * 0.7,
+                    }
+                  : p
+              )
+            );
+          });
+
+          setProcessing((prev) =>
+            prev.map((p) =>
+              p.id === item.id ? { ...p, stage: 'uploading', progress: 0.7 } : p
+            )
+          );
+
+          const { url } = await uploadProcessedImage(
+            processedBlob,
+            user.id,
+            item.file.name
+          );
+
+          setProcessing((prev) =>
+            prev.map((p) =>
+              p.id === item.id ? { ...p, stage: 'saving', progress: 0.9 } : p
+            )
+          );
+
+          const savedImage = await saveImageMetadata(
+            user.id,
+            url,
+            item.file.name,
+            item.file.size,
+            user.email_verified
+          );
+
+          setProcessing((prev) =>
+            prev.map((p) =>
+              p.id === item.id
+                ? { ...p, stage: 'complete', progress: 1, result: savedImage }
+                : p
+            )
+          );
+
+          setImages((prev) => [savedImage, ...prev]);
+        } catch (error) {
+          console.error('Processing failed:', error);
+          setProcessing((prev) =>
+            prev.map((p) =>
+              p.id === item.id
+                ? {
+                    ...p,
+                    stage: 'error',
+                    error: error instanceof Error ? error.message : 'Processing failed',
+                  }
+                : p
+            )
+          );
+        }
+      };
+
+      // Process all images in parallel
+      await Promise.all(newProcessing.map(processOneImage));
+
+      setTimeout(() => {
+        setProcessing((prev) =>
+          prev.filter((p) => p.stage !== 'complete')
+        );
+      }, 3000);
+    },
+    [user]
+  );
+
+  const handleImageDeleted = useCallback((imageId: string) => {
+    setImages((prev) => prev.filter((img) => img.id !== imageId));
+  }, []);
+
+  const handleImageUpdated = useCallback((imageId: string, isPublic: boolean) => {
+    setImages((prev) => prev.map((img) => 
+      img.id === imageId ? { ...img, is_public: isPublic } : img
+    ));
+  }, []);
+
+  const handleSignIn = () => {
+    setAuthMode('signin');
+    setShowAuth(true);
+  };
+
+  const handleSignUp = () => {
+    setAuthMode('signup');
+    setShowAuth(true);
+  };
+
+  const handleAuthSuccess = async () => {
+    setShowAuth(false);
+    setAuthMessage({ text: 'Signed in successfully!', type: 'success' });
+    await loadUserData();
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    const newSessionId = crypto.randomUUID();
+    localStorage.setItem('sessionId', newSessionId);
+    localStorage.setItem('anonymousSessionId', newSessionId);
+    await loadUserData();
+    setAuthMessage({ text: 'Signed out successfully', type: 'success' });
+    setActiveTab('home');
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <Image 
+            src="/favicon.png" 
+            alt="Flicker" 
+            width={48}
+            height={48}
+            className="mx-auto mb-4 rounded-xl animate-pulse"
+          />
+          <p className="text-gray-500">Loading...</p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </div>
+    );
+  }
+
+  const hasExpiringImages = images.some((img) => img.expires_at !== null);
+  const isProcessing = processing.some(
+    (p) => p.stage !== 'complete' && p.stage !== 'error'
+  );
+  const isAuthenticated = user?.email_verified;
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+      {/* Top Navigation */}
+      <TopNav 
+        user={user} 
+        onSignIn={handleSignIn}
+        onSignOut={handleSignOut}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+      />
+
+      {/* Main content - with top padding for fixed nav */}
+      <main className="pt-14">
+        <div className="max-w-2xl mx-auto px-4 py-6">
+          
+          {/* Auth message */}
+          {authMessage && (
+            <div className={`mb-4 p-4 rounded-lg flex items-center justify-between animate-fadeIn ${
+              authMessage.type === 'success' 
+                ? 'bg-green-50 border border-green-200' 
+                : 'bg-red-50 border border-red-200'
+            }`}>
+              <div className="flex items-center gap-3">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                  authMessage.type === 'success' ? 'bg-green-100' : 'bg-red-100'
+                }`}>
+                  {authMessage.type === 'success' ? (
+                    <svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  )}
+                </div>
+                <span className={authMessage.type === 'success' ? 'text-green-700' : 'text-red-700'}>
+                  {authMessage.text}
+                </span>
+              </div>
+              <button
+                onClick={() => setAuthMessage(null)}
+                className={authMessage.type === 'success' ? 'text-green-500 hover:text-green-700 p-1' : 'text-red-500 hover:text-red-700 p-1'}
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          )}
+
+          {/* Home Tab - Upload & Discover Feed */}
+          {activeTab === 'home' && (
+            <>
+              {/* Create Post Card (Upload) */}
+              <div className="bg-white rounded-lg shadow mb-4">
+                <div className="p-4">
+                  <ImageUploader
+                    onFilesSelected={handleFilesSelected}
+                    disabled={isProcessing}
+                  />
+                </div>
+              </div>
+
+              {/* Processing */}
+              {processing.length > 0 && (
+                <div className="bg-white rounded-lg shadow mb-4 p-4">
+                  <ProcessingProgress items={processing} />
+                </div>
+              )}
+
+              {/* Claim prompt */}
+              {!isAuthenticated && hasExpiringImages && (
+                <div className="mb-4">
+                  <ClaimImages onSignUp={handleSignUp} />
+                </div>
+              )}
+
+              {/* Discover Feed - Public Images */}
+              <DiscoverFeed />
+            </>
+          )}
+
+          {/* Profile Tab - Profile Info, Upload, and Images */}
+          {activeTab === 'profile' && user && (
+            <>
+              {/* Profile Header */}
+              <div className="bg-white rounded-lg shadow mb-4">
+                <div className="p-6">
+                  {isAuthenticated ? (
+                    <div className="flex items-center gap-4">
+                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-2xl font-bold">
+                        {user.email?.charAt(0).toUpperCase() || 'U'}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-lg font-semibold text-gray-900">{user.email}</p>
+                        <p className="text-sm text-green-600 flex items-center gap-1">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          </svg>
+                          Verified account
+                        </p>
+                        <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
+                          <span>{images.length} images</span>
+                          <span>{images.filter(img => img.is_public).length} public</span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleSignOut}
+                        className="px-4 py-2 text-sm text-red-600 font-medium bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+                      >
+                        Log out
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="text-center">
+                      <div className="w-16 h-16 mx-auto rounded-full bg-gray-200 flex items-center justify-center text-gray-400 text-2xl font-bold mb-3">
+                        ?
+                      </div>
+                      <p className="text-gray-600 mb-1">Anonymous User</p>
+                      <p className="text-sm text-gray-500 mb-4">
+                        {images.length} images ({hasExpiringImages ? 'expiring in 3 days' : 'no expiring images'})
+                      </p>
+                      <button
+                        onClick={handleSignIn}
+                        className="btn-gradient px-6 py-2"
+                      >
+                        Log in to save permanently
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Upload Section */}
+              <div className="bg-white rounded-lg shadow mb-4">
+                <div className="p-4">
+                  <ImageUploader
+                    onFilesSelected={handleFilesSelected}
+                    disabled={isProcessing}
+                  />
+                </div>
+              </div>
+
+              {/* Processing */}
+              {processing.length > 0 && (
+                <div className="bg-white rounded-lg shadow mb-4 p-4">
+                  <ProcessingProgress items={processing} />
+                </div>
+              )}
+
+              {/* User's Images */}
+              <MyImages 
+                images={images}
+                userId={user.id}
+                onImageDeleted={handleImageDeleted}
+                onImageUpdated={handleImageUpdated}
+              />
+            </>
+          )}
         </div>
       </main>
+
+      {/* Auth Modal */}
+      {showAuth && (
+        <AuthModal 
+          onClose={() => setShowAuth(false)}
+          onSuccess={handleAuthSuccess}
+          defaultMode={authMode}
+        />
+      )}
     </div>
   );
 }

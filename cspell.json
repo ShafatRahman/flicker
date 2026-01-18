@@ -1,0 +1,19 @@
+{
+  "version": "0.2",
+  "language": "en",
+  "words": [
+    "supabase",
+    "tailwindcss",
+    "postcss",
+    "nextjs",
+    "vercel",
+    "imgly",
+    "flicker",
+    "PGRST116",
+  ],
+  "ignorePaths": [
+    "node_modules",
+    ".next",
+    "package-lock.json"
+  ]
+}
