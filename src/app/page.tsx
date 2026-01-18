@@ -266,16 +266,19 @@ export default function Home() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center">
         <div className="text-center">
-          <Image 
-            src="/favicon.png" 
-            alt="Flicker" 
-            width={48}
-            height={48}
-            className="mx-auto mb-4 rounded-xl animate-pulse"
-          />
-          <p className="text-gray-500">Loading...</p>
+          <div className="relative">
+            <Image 
+              src="/favicon.png" 
+              alt="Flicker" 
+              width={48}
+              height={48}
+              className="mx-auto rounded-xl"
+            />
+            <div className="absolute -inset-2 border-2 border-blue-500 border-t-transparent rounded-2xl animate-spin" />
+          </div>
+          <p className="text-gray-400 mt-6 text-sm font-medium">Loading...</p>
         </div>
       </div>
     );
@@ -288,7 +291,7 @@ export default function Home() {
   const isAuthenticated = user?.email_verified;
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-[#f8fafc]">
       {/* Top Navigation */}
       <TopNav 
         user={user} 
@@ -299,37 +302,37 @@ export default function Home() {
       />
 
       {/* Main content - with top padding for fixed nav */}
-      <main className="pt-14">
-        <div className="max-w-2xl mx-auto px-4 py-6">
+      <main className="pt-16">
+        <div className="max-w-xl mx-auto px-4 py-8">
           
           {/* Auth message */}
           {authMessage && (
-            <div className={`mb-4 p-4 rounded-lg flex items-center justify-between animate-fadeIn ${
+            <div className={`mb-6 p-4 rounded-2xl flex items-center justify-between animate-slideUp backdrop-blur-sm ${
               authMessage.type === 'success' 
-                ? 'bg-green-50 border border-green-200' 
-                : 'bg-red-50 border border-red-200'
+                ? 'bg-emerald-50/80 border border-emerald-100' 
+                : 'bg-red-50/80 border border-red-100'
             }`}>
               <div className="flex items-center gap-3">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                  authMessage.type === 'success' ? 'bg-green-100' : 'bg-red-100'
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                  authMessage.type === 'success' ? 'bg-emerald-100' : 'bg-red-100'
                 }`}>
                   {authMessage.type === 'success' ? (
-                    <svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                   ) : (
-                    <svg className="w-4 h-4 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   )}
                 </div>
-                <span className={authMessage.type === 'success' ? 'text-green-700' : 'text-red-700'}>
+                <span className={`font-medium ${authMessage.type === 'success' ? 'text-emerald-800' : 'text-red-800'}`}>
                   {authMessage.text}
                 </span>
               </div>
               <button
                 onClick={() => setAuthMessage(null)}
-                className={authMessage.type === 'success' ? 'text-green-500 hover:text-green-700 p-1' : 'text-red-500 hover:text-red-700 p-1'}
+                className={`p-1.5 rounded-lg transition-colors ${authMessage.type === 'success' ? 'text-emerald-500 hover:bg-emerald-100' : 'text-red-500 hover:bg-red-100'}`}
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -342,8 +345,8 @@ export default function Home() {
           {activeTab === 'home' && (
             <>
               {/* Create Post Card (Upload) */}
-              <div className="bg-white rounded-lg shadow mb-4">
-                <div className="p-4">
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-6">
+                <div className="p-5">
                   <ImageUploader
                     onFilesSelected={handleFilesSelected}
                     disabled={isProcessing}
@@ -353,14 +356,14 @@ export default function Home() {
 
               {/* Processing */}
               {processing.length > 0 && (
-                <div className="bg-white rounded-lg shadow mb-4 p-4">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-6 p-5">
                   <ProcessingProgress items={processing} />
                 </div>
               )}
 
               {/* Claim prompt */}
               {!isAuthenticated && hasExpiringImages && (
-                <div className="mb-4">
+                <div className="mb-6">
                   <ClaimImages onSignUp={handleSignUp} />
                 </div>
               )}

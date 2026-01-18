@@ -63,39 +63,39 @@ export default function DiscoverFeed() {
 
   if (initialLoading) {
     return (
-      <div className="flex justify-center py-12">
-        <div className="animate-spin w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full" />
+      <div className="flex justify-center py-16">
+        <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   if (images.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow p-8 text-center">
-        <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-          <svg className="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center">
+        <div className="w-14 h-14 mx-auto mb-4 bg-gray-50 rounded-xl flex items-center justify-center">
+          <svg className="w-7 h-7 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
         </div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-1">No public images yet</h3>
-        <p className="text-gray-500">Be the first to share an image!</p>
+        <h3 className="text-base font-semibold text-gray-900 mb-1">No public images yet</h3>
+        <p className="text-sm text-gray-500">Be the first to share an image!</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {images.map((image) => (
         <ImagePost key={image.id} image={image} />
       ))}
 
       {/* Infinite scroll trigger */}
-      <div ref={observerRef} className="py-4 flex justify-center">
+      <div ref={observerRef} className="py-6 flex justify-center">
         {isLoading && (
-          <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full" />
+          <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
         )}
         {!hasMore && images.length > 0 && (
-          <p className="text-gray-400 text-sm">No more images to load</p>
+          <p className="text-gray-400 text-xs font-medium">You&apos;ve reached the end</p>
         )}
       </div>
     </div>
@@ -109,50 +109,48 @@ function ImagePost({ image }: { image: PublicImage }) {
   const timeAgo = getTimeAgo(new Date(image.created_at));
 
   return (
-    <div className="bg-white rounded-lg shadow">
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
       {/* Header */}
-      <div className="p-4 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-semibold">
+      <div className="px-4 py-3 flex items-center gap-3">
+        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-sm font-semibold shadow-sm">
           {userInitial}
         </div>
-        <div>
-          <p className="font-semibold text-gray-900">{displayName}</p>
-          <p className="text-xs text-gray-500">{timeAgo}</p>
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-gray-900 text-sm">{displayName}</p>
+          <p className="text-xs text-gray-400">{timeAgo}</p>
         </div>
       </div>
 
       {/* Image */}
-      <div className="bg-gray-100 relative w-full" style={{ minHeight: '300px', maxHeight: '600px', aspectRatio: '1' }}>
+      <div className="bg-gray-50 relative w-full" style={{ minHeight: '280px', maxHeight: '500px', aspectRatio: '1' }}>
         <Image
           src={image.blob_url}
           alt={image.original_filename || 'Shared image'}
           fill
-          sizes="(max-width: 672px) 100vw, 672px"
+          sizes="(max-width: 576px) 100vw, 576px"
           className="object-contain"
         />
       </div>
 
       {/* Footer */}
-      <div className="p-4 border-t border-gray-100">
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-gray-500 truncate">
-            {image.original_filename || 'Untitled'}
-          </p>
-          <button
-            onClick={() => {
-              const link = document.createElement('a');
-              link.href = image.blob_url;
-              link.download = image.original_filename || 'image.png';
-              link.click();
-            }}
-            className="text-blue-500 hover:text-blue-600 text-sm font-medium flex items-center gap-1"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            Download
-          </button>
-        </div>
+      <div className="px-4 py-3 flex items-center justify-between">
+        <p className="text-sm text-gray-500 truncate flex-1 mr-4">
+          {image.original_filename || 'Untitled'}
+        </p>
+        <button
+          onClick={() => {
+            const link = document.createElement('a');
+            link.href = image.blob_url;
+            link.download = image.original_filename || 'image.png';
+            link.click();
+          }}
+          className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          Download
+        </button>
       </div>
     </div>
   );

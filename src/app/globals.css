@@ -1,25 +1,26 @@
 @import "tailwindcss";
 
 :root {
-  /* Facebook-inspired color palette */
-  --background: #f0f2f5;
-  --foreground: #050505;
+  /* Modern sleek color palette */
+  --background: #f8fafc;
+  --foreground: #0f172a;
   --card-bg: #ffffff;
-  --card-border: #dddfe2;
+  --card-border: #e2e8f0;
   
-  /* Primary blue (Facebook blue) */
-  --primary: #1877f2;
-  --primary-hover: #166fe5;
-  --primary-light: #e7f3ff;
+  /* Primary blue */
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-light: #eff6ff;
+  --primary-glow: rgba(37, 99, 235, 0.15);
   
   /* Secondary */
-  --secondary: #42b72a;
+  --secondary: #10b981;
   
-  --muted: #65676b;
-  --muted-light: #b0b3b8;
-  --success: #42b72a;
-  --warning: #f7b928;
-  --error: #fa3e3e;
+  --muted: #64748b;
+  --muted-light: #94a3b8;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
 }
 
 @theme inline {
@@ -28,7 +29,7 @@
   --color-primary: var(--primary);
   --color-secondary: var(--secondary);
   --color-muted: var(--muted);
-  --font-sans: 'Segoe UI', Helvetica, Arial, sans-serif;
+  --font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
 }
 
 * {
@@ -38,15 +39,15 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
+  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom scrollbar */
+/* Sleek scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -54,17 +55,22 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #bcc0c4;
-  border-radius: 4px;
+  background: #cbd5e1;
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #8a8d91;
+  background: #94a3b8;
 }
 
 /* Animation keyframes */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-4px); }
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
@@ -73,78 +79,124 @@ body {
   50% { opacity: 0.5; }
 }
 
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
 .animate-fadeIn {
-  animation: fadeIn 0.2s ease forwards;
+  animation: fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.animate-slideUp {
+  animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 .animate-pulse-slow {
   animation: pulse 2s ease-in-out infinite;
 }
 
-/* Facebook-style primary button with gradient */
+.animate-shimmer {
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Modern primary button */
 .btn-gradient {
-  background: linear-gradient(to bottom, #1877f2, #1565d8);
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
   color: white;
   border: none;
-  padding: 0.625rem 1rem;
-  border-radius: 6px;
-  font-size: 0.9375rem;
+  padding: 0.625rem 1.25rem;
+  border-radius: 10px;
+  font-size: 0.875rem;
   font-weight: 600;
-  transition: filter 0.15s ease;
+  letter-spacing: -0.01em;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3), 0 1px 2px rgba(37, 99, 235, 0.2);
 }
 
 .btn-gradient:hover {
-  filter: brightness(1.05);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35), 0 2px 4px rgba(37, 99, 235, 0.2);
 }
 
 .btn-gradient:active {
-  filter: brightness(0.95);
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.3);
 }
 
 .btn-gradient:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
-/* Secondary button (Facebook green for signup) */
+/* Secondary button */
 .btn-secondary {
-  background: linear-gradient(to bottom, #42b72a, #36a420);
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   color: white;
   border: none;
-  padding: 0.625rem 1rem;
-  border-radius: 6px;
-  font-size: 0.9375rem;
+  padding: 0.625rem 1.25rem;
+  border-radius: 10px;
+  font-size: 0.875rem;
   font-weight: 600;
-  transition: filter 0.15s ease;
+  letter-spacing: -0.01em;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
+  box-shadow: 0 1px 3px rgba(16, 185, 129, 0.3), 0 1px 2px rgba(16, 185, 129, 0.2);
 }
 
 .btn-secondary:hover {
-  filter: brightness(1.05);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35), 0 2px 4px rgba(16, 185, 129, 0.2);
 }
 
 /* Ghost button */
 .btn-ghost {
   background: transparent;
   color: var(--muted);
-  padding: 0.5rem 0.75rem;
-  border-radius: 6px;
+  padding: 0.5rem 0.875rem;
+  border-radius: 8px;
   font-size: 0.875rem;
   font-weight: 500;
-  transition: background-color 0.15s ease;
+  transition: all 0.15s ease;
   cursor: pointer;
 }
 
 .btn-ghost:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: #f1f5f9;
+  color: var(--foreground);
 }
 
-/* Facebook-style card shadow */
+/* Modern card shadows */
 .shadow {
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.shadow-md {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.03);
 }
 
 .shadow-lg {
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.03);
+}
+
+/* Glass effect */
+.glass {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Card hover effect */
+.card-hover {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px -5px rgba(0, 0, 0, 0.08), 0 4px 8px -4px rgba(0, 0, 0, 0.03);
 }
