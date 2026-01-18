@@ -129,7 +129,6 @@ export default function Home() {
 
       setProcessing((prev) => [...prev, ...newProcessing]);
 
-      // Process all images in parallel
       const processOneImage = async (item: ProcessingStatus) => {
         try {
           setProcessing((prev) =>
@@ -137,6 +136,9 @@ export default function Home() {
               p.id === item.id ? { ...p, stage: 'removing-bg' } : p
             )
           );
+          
+          // Yield to browser so "Removing background" is visible before heavy processing
+          await new Promise(resolve => setTimeout(resolve, 0));
 
           const processedBlob = await processImage(item.file, (_stage, progress) => {
             setProcessing((prev) =>
@@ -203,8 +205,9 @@ export default function Home() {
         }
       };
 
-      // Process all images in parallel
-      await Promise.all(newProcessing.map(processOneImage));
+      for (const item of newProcessing) {
+        await processOneImage(item);
+      }
 
       setTimeout(() => {
         setProcessing((prev) =>
@@ -237,18 +240,28 @@ export default function Home() {
 
   const handleAuthSuccess = async () => {
     setShowAuth(false);
-    setAuthMessage({ text: 'Signed in successfully!', type: 'success' });
     await loadUserData();
   };
 
   const handleSignOut = async () => {
-    await signOut();
-    const newSessionId = crypto.randomUUID();
-    localStorage.setItem('sessionId', newSessionId);
-    localStorage.setItem('anonymousSessionId', newSessionId);
-    await loadUserData();
-    setAuthMessage({ text: 'Signed out successfully', type: 'success' });
-    setActiveTab('home');
+    try {
+      await signOut();
+      // Reset user state immediately
+      setUser(null);
+      setImages([]);
+      // Create new anonymous session
+      const newSessionId = crypto.randomUUID();
+      localStorage.setItem('sessionId', newSessionId);
+      localStorage.setItem('anonymousSessionId', newSessionId);
+      // Load fresh anonymous user data
+      const userData = await getOrCreateUser(newSessionId);
+      setUser(userData);
+      setAuthMessage({ text: 'Signed out successfully', type: 'success' });
+      setActiveTab('home');
+    } catch (error) {
+      console.error('Sign out failed:', error);
+      setAuthMessage({ text: 'Failed to sign out', type: 'error' });
+    }
   };
 
   if (isLoading) {

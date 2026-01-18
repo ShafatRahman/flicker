@@ -39,7 +39,8 @@ export default function ImageUploader({ onFilesSelected, disabled }: ImageUpload
       'image/*': ['.jpeg', '.jpg', '.png', '.webp', '.bmp', '.gif'],
     },
     disabled,
-    multiple: true,
+    multiple: false,
+    maxFiles: 1,
   });
 
   return (
@@ -83,7 +84,7 @@ export default function ImageUploader({ onFilesSelected, disabled }: ImageUpload
         {/* Text */}
         <div className="space-y-2">
           <p className="text-lg font-medium text-gray-900">
-            {isDragActive ? 'Drop your images here' : 'Drop images or click to upload'}
+            {isDragActive ? 'Drop your image here' : 'Drop an image or click to upload'}
           </p>
           <p className="text-sm text-gray-500">
             PNG, JPG, WebP up to {formatFileSize(MAX_FILE_SIZE)}
@@ -98,7 +99,7 @@ export default function ImageUploader({ onFilesSelected, disabled }: ImageUpload
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
-            Select files
+            Select image
           </span>
         </div>
       </div>
