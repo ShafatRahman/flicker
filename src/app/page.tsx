@@ -269,15 +269,15 @@ export default function Home() {
     return (
       <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center">
         <div className="text-center">
-          <div className="relative">
+          <div className="relative inline-block">
             <Image 
               src="/favicon.png" 
               alt="Flicker" 
               width={48}
               height={48}
-              className="mx-auto rounded-xl"
+              className="rounded-xl"
             />
-            <div className="absolute -inset-2 border-2 border-blue-500 border-t-transparent rounded-2xl animate-spin" />
+            <div className="absolute -inset-2 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
           </div>
           <p className="text-gray-400 mt-6 text-sm font-medium">Loading...</p>
         </div>
