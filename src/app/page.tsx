@@ -106,7 +106,9 @@ export default function Home() {
 
     const supabase = createClient();
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
-      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+      // Only handle SIGNED_IN here - SIGNED_OUT is handled by handleSignOut
+      // to avoid race conditions between the listener and explicit state management
+      if (event === 'SIGNED_IN') {
         await loadUserData();
       }
     });
@@ -256,7 +258,6 @@ export default function Home() {
       // Load fresh anonymous user data
       const userData = await getOrCreateUser(newSessionId);
       setUser(userData);
-      setAuthMessage({ text: 'Signed out successfully', type: 'success' });
       setActiveTab('home');
     } catch (error) {
       console.error('Sign out failed:', error);

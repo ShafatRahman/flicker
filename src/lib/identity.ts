@@ -30,6 +30,7 @@ export async function signOut(): Promise<void> {
   const { error } = await supabase.auth.signOut({ scope: 'local' });
   if (error) {
     console.error('Sign out error:', error);
+    throw error;
   }
   // Clear local session
   if (typeof window !== 'undefined') {
